@@ -6,8 +6,8 @@ from tqdm.auto import tqdm
 from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-# --- CORRECTED: Use the correct class name ---
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+# --- CORRECTED: Use the correct class for the Inference API ---
+from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
 
 load_dotenv()
 
@@ -42,8 +42,8 @@ def load_vectorstore(uploaded_files):
     if not HF_TOKEN:
         raise ValueError("HF_TOKEN not found in environment variables.")
 
-    # --- CORRECTED: Use the correct class name ---
-    embed_model = HuggingFaceEndpointEmbeddings(
+    # --- CORRECTED: Use the correct class for the Inference API ---
+    embed_model = HuggingFaceInferenceAPIEmbeddings(
         api_key=HF_TOKEN,
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
