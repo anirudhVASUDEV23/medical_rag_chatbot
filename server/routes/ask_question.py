@@ -14,26 +14,28 @@ from langchain.embeddings.base import Embeddings
 
 router = APIRouter()
 
-# ------------------- VoyageAI Embeddings Class -------------------
+# ------------------- Corrected VoyageAI Embeddings Class -------------------
 class VoyageAIEmbeddings(Embeddings):
     def __init__(self, model_name="voyage-3.5-lite", device="cpu"):
         self.client = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
         self.model_name = model_name
         self.device = device
 
-    def embed_documents(self, texts):
+    def embed_documents(self, texts: List[str]):
+        # texts is a list of strings, model name is specified separately
         response = self.client.embed(
+            texts,                # <-- pass texts as positional argument
             model=self.model_name,
-            inputs=texts,
-            input_type="document"
+            input_type="document" # optional
         )
+        # response["results"] contains embeddings
         return [res["embedding"] for res in response["results"]]
 
-    def embed_query(self, query):
+    def embed_query(self, query: str):
         response = self.client.embed(
+            [query],              # single query as a list
             model=self.model_name,
-            inputs=[query],
-            input_type="query"
+            input_type="query"    # optional
         )
         return response["results"][0]["embedding"]
 
