@@ -6,9 +6,8 @@ from tqdm.auto import tqdm
 from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-# LangChain base class for embeddings
 from langchain.embeddings.base import Embeddings
+import voyageai
 
 load_dotenv()
 
@@ -21,8 +20,6 @@ UPLOAD_DIR = "./uploaded_docs"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ------------------- VoyageAI Embeddings Class -------------------
-import voyageai
-
 class VoyageAIEmbeddings(Embeddings):
     def __init__(self, model_name="voyage-3.5-lite", device="cpu"):
         self.client = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
@@ -30,18 +27,19 @@ class VoyageAIEmbeddings(Embeddings):
         self.device = device
 
     def embed_documents(self, texts):
+        # Pass texts as positional argument, not with "inputs="
         response = self.client.embed(
+            texts,
             model=self.model_name,
-            inputs=texts,
-            input_type="document"
+            input_type="document"  # optional
         )
         return [res["embedding"] for res in response["results"]]
 
     def embed_query(self, query):
         response = self.client.embed(
+            [query],
             model=self.model_name,
-            inputs=[query],
-            input_type="query"
+            input_type="query"  # optional
         )
         return response["results"][0]["embedding"]
 
