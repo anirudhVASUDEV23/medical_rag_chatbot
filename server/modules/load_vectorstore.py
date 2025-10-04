@@ -11,15 +11,14 @@ import voyageai
 
 load_dotenv()
 
-# Pinecone config
+# ------------------- Config -------------------
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_ENV = "us-east-1"
+PINECONE_ENV = os.getenv("PINECONE_ENV") or "us-east1-aws"  # check your Pinecone dashboard
 PINECONE_INDEX_NAME = "medicalindex"
-
 UPLOAD_DIR = "./uploaded_docs"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# ------------------- VoyageAI Embeddings Class -------------------
+# ------------------- VoyageAI Embeddings -------------------
 class VoyageAIEmbeddings(Embeddings):
     def __init__(self, model_name="voyage-3.5-lite", device="cpu"):
         self.client = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
@@ -27,13 +26,17 @@ class VoyageAIEmbeddings(Embeddings):
         self.device = device
 
     def embed_documents(self, texts):
-        response = self.client.embed(
-            texts,                 # positional argument
-            model=self.model_name,
-            input_type="document"
-        )
-        # Access the embeddings via the .embeddings attribute
-        return response.embeddings
+        embeddings_list = []
+        max_batch = 8  # Voyage AI max batch per request
+        for i in range(0, len(texts), max_batch):
+            batch_texts = texts[i:i + max_batch]
+            response = self.client.embed(
+                batch_texts,
+                model=self.model_name,
+                input_type="document"
+            )
+            embeddings_list.extend(response.embeddings)
+        return embeddings_list
 
     def embed_query(self, query):
         response = self.client.embed(
@@ -43,21 +46,23 @@ class VoyageAIEmbeddings(Embeddings):
         )
         return response.embeddings[0]
 
-
 # ------------------- Pinecone Setup -------------------
-pc = Pinecone(api_key=PINECONE_API_KEY)
-spec = ServerlessSpec(cloud="aws", region=PINECONE_ENV)
-existing_indexes = [i["name"] for i in pc.list_indexes()]
+pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
+spec = ServerlessSpec(cloud="aws", region="us-east1")  # adjust region if needed
 
+existing_indexes = [i["name"] for i in pc.list_indexes()]
 if PINECONE_INDEX_NAME not in existing_indexes:
+    print(f"Creating Pinecone index '{PINECONE_INDEX_NAME}'...")
     pc.create_index(
         name=PINECONE_INDEX_NAME,
-        dimension=512,  # Voyage AI voyage-3.5-lite embeddings dimension
+        dimension=512,  # VoyageAI voyage-3.5-lite dimension
         metric="dotproduct",
         spec=spec
     )
+    # Wait until index is ready
     while not pc.describe_index(PINECONE_INDEX_NAME).status["ready"]:
         time.sleep(1)
+    print("Index ready.")
 
 index = pc.Index(PINECONE_INDEX_NAME)
 
@@ -79,7 +84,8 @@ def load_vectorstore(uploaded_files):
         splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         chunks = splitter.split_documents(documents)
 
-        batch_size = 50
+        # VoyageAI max batch per embed_documents is 8
+        batch_size = 8
         for i in tqdm(range(0, len(chunks), batch_size), desc=f"Processing {Path(file_path).name}"):
             batch_chunks = chunks[i:i + batch_size]
             texts = [chunk.page_content for chunk in batch_chunks]
