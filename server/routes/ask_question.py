@@ -9,10 +9,35 @@ from pydantic import Field
 from typing import List, Optional
 from logger import logger
 import os
+import voyageai
+from langchain.embeddings.base import Embeddings
 
-# Use the VoyageAIEmbeddings class defined above
 router = APIRouter()
 
+# ------------------- VoyageAI Embeddings Class -------------------
+class VoyageAIEmbeddings(Embeddings):
+    def __init__(self, model_name="voyage-3.5-lite", device="cpu"):
+        self.client = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
+        self.model_name = model_name
+        self.device = device
+
+    def embed_documents(self, texts):
+        response = self.client.embed(
+            model=self.model_name,
+            inputs=texts,
+            input_type="document"
+        )
+        return [res["embedding"] for res in response["results"]]
+
+    def embed_query(self, query):
+        response = self.client.embed(
+            model=self.model_name,
+            inputs=[query],
+            input_type="query"
+        )
+        return response["results"][0]["embedding"]
+
+# ------------------- FastAPI Route -------------------
 @router.post("/ask/")
 async def ask_question(question: str = Form(...)):
     try:
@@ -28,7 +53,7 @@ async def ask_question(question: str = Form(...)):
         pc = Pinecone(api_key=PINECONE_API_KEY)
         index = pc.Index(PINECONE_INDEX_NAME)
 
-        # Voyage AI embeddings
+        # Instantiate VoyageAI embeddings
         embed_model = VoyageAIEmbeddings(model_name="voyage-3.5-lite", device="cpu")
         embedded_query = embed_model.embed_query(question)
         res = index.query(vector=embedded_query, top_k=3, include_metadata=True)
