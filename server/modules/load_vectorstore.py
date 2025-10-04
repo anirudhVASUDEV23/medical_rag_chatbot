@@ -27,21 +27,22 @@ class VoyageAIEmbeddings(Embeddings):
         self.device = device
 
     def embed_documents(self, texts):
-        # Pass texts as positional argument, not with "inputs="
         response = self.client.embed(
-            texts,
+            texts,                 # positional argument
             model=self.model_name,
-            input_type="document"  # optional
+            input_type="document"
         )
-        return [res["embedding"] for res in response["results"]]
+        # Access the embeddings via the .embeddings attribute
+        return response.embeddings
 
     def embed_query(self, query):
         response = self.client.embed(
             [query],
             model=self.model_name,
-            input_type="query"  # optional
+            input_type="query"
         )
-        return response["results"][0]["embedding"]
+        return response.embeddings[0]
+
 
 # ------------------- Pinecone Setup -------------------
 pc = Pinecone(api_key=PINECONE_API_KEY)
