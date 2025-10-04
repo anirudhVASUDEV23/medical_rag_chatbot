@@ -10,9 +10,7 @@ langchain-core
 langchain-groq
 langchain-huggingface
 
-# Embeddings (Local Model)
-sentence-transformers
-torch
+voyageai
 
 # Vectorstore
 pinecone
