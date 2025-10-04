@@ -4,7 +4,8 @@ from modules.llm import get_llm_chain
 from modules.query_handlers import query_chain
 from langchain_core.documents import Document
 from langchain.schema import BaseRetriever
-from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
+# --- CORRECTED: Use the correct class name ---
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from pinecone import Pinecone
 from pydantic import Field
 from typing import List, Optional
@@ -13,14 +14,12 @@ import os
 
 router=APIRouter()
 
-# REMOVED: Don't get the token here in the global scope
-
 @router.post("/ask/")
 async def ask_question(question: str = Form(...)):
     try:
         logger.info(f"user query: {question}")
 
-        # --- MOVED INITIALIZATION INSIDE THE FUNCTION ---
+        # MOVED INITIALIZATION INSIDE THE FUNCTION
         HF_TOKEN = os.getenv("HF_TOKEN")
         PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
         PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
@@ -33,7 +32,8 @@ async def ask_question(question: str = Form(...)):
         pc = Pinecone(api_key=PINECONE_API_KEY)
         index = pc.Index(PINECONE_INDEX_NAME)
         
-        embed_model = HuggingFaceInferenceAPIEmbeddings(
+        # --- CORRECTED: Use the correct class name ---
+        embed_model = HuggingFaceEndpointEmbeddings(
             api_key=HF_TOKEN,
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
