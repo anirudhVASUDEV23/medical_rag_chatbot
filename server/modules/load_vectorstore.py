@@ -6,44 +6,41 @@ from tqdm.auto import tqdm
 from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+# --- CHANGED: Import the Hugging Face Embeddings model ---
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 load_dotenv()
 
-GOOGLE_API_KEY=os.getenv("GOOGLE_API_KEY")
+# --- REMOVED: Google API Key is no longer needed for embeddings ---
 PINECONE_API_KEY=os.getenv("PINECONE_API_KEY")
 PINECONE_ENV="us-east-1"
 PINECONE_INDEX_NAME="medicalindex"
 
-os.environ["GOOGLE_API_KEY"]=GOOGLE_API_KEY
-
 UPLOAD_DIR="./uploaded_docs"
 os.makedirs(UPLOAD_DIR,exist_ok=True)
-
 
 # initialize pinecone instance
 pc=Pinecone(api_key=PINECONE_API_KEY)
 spec=ServerlessSpec(cloud="aws",region=PINECONE_ENV)
 existing_indexes=[i["name"] for i in pc.list_indexes()]
 
-
 if PINECONE_INDEX_NAME not in existing_indexes:
     pc.create_index(
         name=PINECONE_INDEX_NAME,
-        dimension=768,
+        # --- CRITICAL CHANGE: The dimension must match the new model ---
+        dimension=384,
         metric="dotproduct",
         spec=spec
     )
     while not pc.describe_index(PINECONE_INDEX_NAME).status["ready"]:
         time.sleep(1)
 
-
 index=pc.Index(PINECONE_INDEX_NAME)
 
 # load,split,embed and upsert pdf docs content
-
 def load_vectorstore(uploaded_files):
-    embed_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    # --- CHANGED: Use the free Hugging Face model ---
+    embed_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     file_paths = []
 
     for file in uploaded_files:
