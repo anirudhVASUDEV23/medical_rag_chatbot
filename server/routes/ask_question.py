@@ -4,39 +4,32 @@ from modules.llm import get_llm_chain
 from modules.query_handlers import query_chain
 from langchain_core.documents import Document
 from langchain.schema import BaseRetriever
-# --- CHANGED: Import the local Hugging Face Embeddings model ---
-from langchain_huggingface import HuggingFaceEmbeddings
 from pinecone import Pinecone
 from pydantic import Field
 from typing import List, Optional
 from logger import logger
 import os
 
-router=APIRouter()
+# Use the VoyageAIEmbeddings class defined above
+router = APIRouter()
 
 @router.post("/ask/")
 async def ask_question(question: str = Form(...)):
     try:
         logger.info(f"user query: {question}")
 
-        # --- CHANGED: Removed Google API Key ---
         PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
         PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
-        
-        # Check if environment variables are loaded
+
         if not all([PINECONE_API_KEY, PINECONE_INDEX_NAME]):
             raise ValueError("API keys or index name not found in environment variables.")
 
-        # Embed model + Pinecone setup
+        # Pinecone index
         pc = Pinecone(api_key=PINECONE_API_KEY)
         index = pc.Index(PINECONE_INDEX_NAME)
-        
-        # --- CHANGED: Use the local Hugging Face model ---
-        embed_model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={"device": "cpu"}
-        )
-        
+
+        # Voyage AI embeddings
+        embed_model = VoyageAIEmbeddings(model_name="voyage-3.5-lite", device="cpu")
         embedded_query = embed_model.embed_query(question)
         res = index.query(vector=embedded_query, top_k=3, include_metadata=True)
 
@@ -44,10 +37,10 @@ async def ask_question(question: str = Form(...)):
             Document(
                 page_content=match["metadata"].get("text", ""),
                 metadata=match["metadata"]
-            ) for match in res["matches"]
+            )
+            for match in res["matches"]
         ]
 
-        # ... rest of your retriever and chain logic remains the same ...
         class SimpleRetriever(BaseRetriever):
             tags: Optional[List[str]] = Field(default_factory=list)
             metadata: Optional[dict] = Field(default_factory=dict)
