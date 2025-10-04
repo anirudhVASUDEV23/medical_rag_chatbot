@@ -7,7 +7,7 @@ from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 # --- CHANGED: Import the Hugging Face Embeddings model ---
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
 
 load_dotenv()
 
@@ -15,6 +15,7 @@ load_dotenv()
 PINECONE_API_KEY=os.getenv("PINECONE_API_KEY")
 PINECONE_ENV="us-east-1"
 PINECONE_INDEX_NAME="medicalindex"
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 UPLOAD_DIR="./uploaded_docs"
 os.makedirs(UPLOAD_DIR,exist_ok=True)
@@ -40,7 +41,10 @@ index=pc.Index(PINECONE_INDEX_NAME)
 # load,split,embed and upsert pdf docs content
 def load_vectorstore(uploaded_files):
     # --- CHANGED: Use the free Hugging Face model ---
-    embed_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embed_model = HuggingFaceInferenceAPIEmbeddings(
+    api_key=HF_TOKEN,
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
     file_paths = []
 
     for file in uploaded_files:
