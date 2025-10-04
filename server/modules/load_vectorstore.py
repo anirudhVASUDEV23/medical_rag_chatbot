@@ -6,11 +6,12 @@ from tqdm.auto import tqdm
 from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+# --- CHANGED: Import the local Hugging Face Embeddings model ---
+from langchain_huggingface import HuggingFaceEmbeddings
 
 load_dotenv()
 
-GOOGLE_API_KEY=os.getenv("GOOGLE_API_KEY")
+# --- CHANGED: No longer need Google API Key ---
 PINECONE_API_KEY=os.getenv("PINECONE_API_KEY")
 PINECONE_ENV="us-east-1"
 PINECONE_INDEX_NAME="medicalindex"
@@ -26,7 +27,8 @@ existing_indexes=[i["name"] for i in pc.list_indexes()]
 if PINECONE_INDEX_NAME not in existing_indexes:
     pc.create_index(
         name=PINECONE_INDEX_NAME,
-        dimension=768,
+        # --- CRITICAL CHANGE: Dimension must be 384 for this model ---
+        dimension=384,
         metric="dotproduct",
         spec=spec
     )
@@ -37,7 +39,11 @@ index=pc.Index(PINECONE_INDEX_NAME)
 
 # load,split,embed and upsert pdf docs content
 def load_vectorstore(uploaded_files):
-    embed_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    # --- CHANGED: Use the local Hugging Face model ---
+    embed_model = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"}
+    )
     
     file_paths = []
 
@@ -53,17 +59,14 @@ def load_vectorstore(uploaded_files):
 
         splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         chunks = splitter.split_documents(documents)
-
-        # --- BATCHING LOGIC STARTS HERE ---
-        batch_size = 50  # Process 50 chunks per batch to stay under the limit
+        
+        # Batching is still good practice for memory management
+        batch_size = 50
         for i in tqdm(range(0, len(chunks), batch_size), desc=f"Processing {Path(file_path).name}"):
-            # Get the next batch of chunks
             batch_chunks = chunks[i:i + batch_size]
             
-            # Prepare data for this batch
             texts = [chunk.page_content for chunk in batch_chunks]
             metadatas = [chunk.metadata for chunk in batch_chunks]
-            # Make sure IDs are unique for each chunk in the batch
             ids = [f"{Path(file_path).stem}-{i+j}" for j in range(len(batch_chunks))]
 
             print(f"🔍 Embedding batch of {len(texts)} chunks...")
@@ -71,11 +74,5 @@ def load_vectorstore(uploaded_files):
 
             print("📤 Uploading batch to Pinecone...")
             index.upsert(vectors=zip(ids, embeddings, metadatas))
-
-            # --- THE CRITICAL PAUSE ---
-            # If there are more chunks to process, wait for a second
-            if i + batch_size < len(chunks):
-                print("⏳ Waiting 1 second to respect API rate limit...")
-                time.sleep(1) 
 
         print(f"✅ Upload complete for {file_path}")
