@@ -10,7 +10,7 @@ langchain-core
 langchain-groq
 
 # Vectorstore
-pinecone-client
+pinecone
 
 # Embeddings
 sentence-transformers
