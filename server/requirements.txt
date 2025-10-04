@@ -12,7 +12,7 @@ langchain-groq
 # Vectorstore
 pinecone
 
-langchain-huggingface  # <-- ADD THIS
+langchain-google-genai
 
 # PDF Parsing
 pypdf
