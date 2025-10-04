@@ -6,11 +6,13 @@ from tqdm.auto import tqdm
 from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-# --- CORRECTED: Use the correct class for the Inference API ---
-from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
+# --- CHANGED: Import the Google Generative AI Embeddings model ---
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 load_dotenv()
 
+# --- CHANGED: Get the Google API Key ---
+GOOGLE_API_KEY=os.getenv("GOOGLE_API_KEY")
 PINECONE_API_KEY=os.getenv("PINECONE_API_KEY")
 PINECONE_ENV="us-east-1"
 PINECONE_INDEX_NAME="medicalindex"
@@ -26,7 +28,8 @@ existing_indexes=[i["name"] for i in pc.list_indexes()]
 if PINECONE_INDEX_NAME not in existing_indexes:
     pc.create_index(
         name=PINECONE_INDEX_NAME,
-        dimension=384,
+        # --- CRITICAL CHANGE: Dimension must be 768 for Google's model ---
+        dimension=768,
         metric="dotproduct",
         spec=spec
     )
@@ -37,16 +40,10 @@ index=pc.Index(PINECONE_INDEX_NAME)
 
 # load,split,embed and upsert pdf docs content
 def load_vectorstore(uploaded_files):
-    # Get the token here to ensure it's loaded
-    HF_TOKEN = os.getenv("HF_TOKEN")
-    if not HF_TOKEN:
-        raise ValueError("HF_TOKEN not found in environment variables.")
-
-    # --- CORRECTED: Use the correct class for the Inference API ---
-    embed_model = HuggingFaceInferenceAPIEmbeddings(
-        api_key=HF_TOKEN,
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    # --- CHANGED: Use the Google Generative AI model ---
+    # It automatically uses the GOOGLE_API_KEY from your environment
+    embed_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    
     file_paths = []
 
     for file in uploaded_files:
