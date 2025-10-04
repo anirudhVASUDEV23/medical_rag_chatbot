@@ -4,8 +4,8 @@ from modules.llm import get_llm_chain
 from modules.query_handlers import query_chain
 from langchain_core.documents import Document
 from langchain.schema import BaseRetriever
-# --- CHANGED: Import the Google Generative AI Embeddings model ---
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+# --- CHANGED: Import the local Hugging Face Embeddings model ---
+from langchain_huggingface import HuggingFaceEmbeddings
 from pinecone import Pinecone
 from pydantic import Field
 from typing import List, Optional
@@ -19,21 +19,23 @@ async def ask_question(question: str = Form(...)):
     try:
         logger.info(f"user query: {question}")
 
-        # --- CHANGED: Get Google API Key instead of Hugging Face Token ---
-        GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+        # --- CHANGED: Removed Google API Key ---
         PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
         PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
         
         # Check if environment variables are loaded
-        if not all([GOOGLE_API_KEY, PINECONE_API_KEY, PINECONE_INDEX_NAME]):
+        if not all([PINECONE_API_KEY, PINECONE_INDEX_NAME]):
             raise ValueError("API keys or index name not found in environment variables.")
 
         # Embed model + Pinecone setup
         pc = Pinecone(api_key=PINECONE_API_KEY)
         index = pc.Index(PINECONE_INDEX_NAME)
         
-        # --- CHANGED: Use the Google Generative AI model ---
-        embed_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        # --- CHANGED: Use the local Hugging Face model ---
+        embed_model = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={"device": "cpu"}
+        )
         
         embedded_query = embed_model.embed_query(question)
         res = index.query(vector=embedded_query, top_k=3, include_metadata=True)
