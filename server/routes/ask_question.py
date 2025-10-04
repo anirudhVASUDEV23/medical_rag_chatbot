@@ -4,8 +4,7 @@ from modules.llm import get_llm_chain
 from modules.query_handlers import query_chain
 from langchain_core.documents import Document
 from langchain.schema import BaseRetriever
-# --- CHANGED: Import the Hugging Face Embeddings model ---
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
 from pinecone import Pinecone
 from pydantic import Field
 from typing import List, Optional
@@ -14,28 +13,42 @@ import os
 
 router=APIRouter()
 
+# REMOVED: Don't get the token here in the global scope
+
 @router.post("/ask/")
 async def ask_question(question: str = Form(...)):
     try:
         logger.info(f"user query: {question}")
 
-        # Embed model + Pinecone setup
-        pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
-        index = pc.Index(os.environ["PINECONE_INDEX_NAME"])
+        # --- MOVED INITIALIZATION INSIDE THE FUNCTION ---
+        HF_TOKEN = os.getenv("HF_TOKEN")
+        PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+        PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
         
-        # --- CHANGED: Use the free Hugging Face model ---
-        embed_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        # Check if environment variables are loaded
+        if not all([HF_TOKEN, PINECONE_API_KEY, PINECONE_INDEX_NAME]):
+            raise ValueError("API keys or index name not found in environment variables.")
+
+        # Embed model + Pinecone setup
+        pc = Pinecone(api_key=PINECONE_API_KEY)
+        index = pc.Index(PINECONE_INDEX_NAME)
+        
+        embed_model = HuggingFaceInferenceAPIEmbeddings(
+            api_key=HF_TOKEN,
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
         
         embedded_query = embed_model.embed_query(question)
         res = index.query(vector=embedded_query, top_k=3, include_metadata=True)
 
         docs = [
             Document(
-                page_content=match["metadata"].get("text", ""), # Ensure you have 'text' in metadata
+                page_content=match["metadata"].get("text", ""),
                 metadata=match["metadata"]
             ) for match in res["matches"]
         ]
 
+        # ... rest of your retriever and chain logic remains the same ...
         class SimpleRetriever(BaseRetriever):
             tags: Optional[List[str]] = Field(default_factory=list)
             metadata: Optional[dict] = Field(default_factory=dict)
