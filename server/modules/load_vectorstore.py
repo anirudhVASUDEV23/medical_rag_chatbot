@@ -6,16 +6,14 @@ from tqdm.auto import tqdm
 from pinecone import Pinecone, ServerlessSpec
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-# --- CHANGED: Import the Hugging Face Embeddings model ---
 from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
 
 load_dotenv()
 
-# --- REMOVED: Google API Key is no longer needed for embeddings ---
 PINECONE_API_KEY=os.getenv("PINECONE_API_KEY")
 PINECONE_ENV="us-east-1"
 PINECONE_INDEX_NAME="medicalindex"
-HF_TOKEN = os.getenv("HF_TOKEN")
+# --- REMOVED: Don't get the HF_TOKEN here ---
 
 UPLOAD_DIR="./uploaded_docs"
 os.makedirs(UPLOAD_DIR,exist_ok=True)
@@ -28,7 +26,6 @@ existing_indexes=[i["name"] for i in pc.list_indexes()]
 if PINECONE_INDEX_NAME not in existing_indexes:
     pc.create_index(
         name=PINECONE_INDEX_NAME,
-        # --- CRITICAL CHANGE: The dimension must match the new model ---
         dimension=384,
         metric="dotproduct",
         spec=spec
@@ -40,10 +37,14 @@ index=pc.Index(PINECONE_INDEX_NAME)
 
 # load,split,embed and upsert pdf docs content
 def load_vectorstore(uploaded_files):
-    # --- CHANGED: Use the free Hugging Face model ---
+    # --- MOVED INSIDE: Get the token here to ensure it's loaded ---
+    HF_TOKEN = os.getenv("HF_TOKEN")
+    if not HF_TOKEN:
+        raise ValueError("HF_TOKEN not found in environment variables.")
+
     embed_model = HuggingFaceInferenceAPIEmbeddings(
-    api_key=HF_TOKEN,
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+        api_key=HF_TOKEN,
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
     file_paths = []
 
@@ -53,6 +54,7 @@ def load_vectorstore(uploaded_files):
             f.write(file.file.read())
         file_paths.append(str(save_path))
 
+    # ... rest of the function is perfect ...
     for file_path in file_paths:
         loader = PyPDFLoader(file_path)
         documents = loader.load()
