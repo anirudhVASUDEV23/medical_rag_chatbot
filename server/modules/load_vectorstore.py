@@ -12,9 +12,9 @@ import voyageai
 load_dotenv()
 
 # ------------------- Config -------------------
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_ENV = os.getenv("PINECONE_ENV") or "us-east1-aws"  # check your Pinecone dashboard
-PINECONE_INDEX_NAME = "medicalindex"
+PINECONE_API_KEY=os.getenv("PINECONE_API_KEY")
+PINECONE_ENV="us-east-1"
+PINECONE_INDEX_NAME="medicalindex"
 UPLOAD_DIR = "./uploaded_docs"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -47,24 +47,24 @@ class VoyageAIEmbeddings(Embeddings):
         return response.embeddings[0]
 
 # ------------------- Pinecone Setup -------------------
-pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
-spec = ServerlessSpec(cloud="aws", region="us-east1")  # adjust region if needed
+# initialize pinecone instance
+pc=Pinecone(api_key=PINECONE_API_KEY)
+spec=ServerlessSpec(cloud="aws",region=PINECONE_ENV)
+existing_indexes=[i["name"] for i in pc.list_indexes()]
 
-existing_indexes = [i["name"] for i in pc.list_indexes()]
+
 if PINECONE_INDEX_NAME not in existing_indexes:
-    print(f"Creating Pinecone index '{PINECONE_INDEX_NAME}'...")
     pc.create_index(
         name=PINECONE_INDEX_NAME,
-        dimension=512,  # VoyageAI voyage-3.5-lite dimension
+        dimension=768,
         metric="dotproduct",
         spec=spec
     )
-    # Wait until index is ready
     while not pc.describe_index(PINECONE_INDEX_NAME).status["ready"]:
         time.sleep(1)
-    print("Index ready.")
 
-index = pc.Index(PINECONE_INDEX_NAME)
+
+index=pc.Index(PINECONE_INDEX_NAME)
 
 # ------------------- Load PDFs and Embed -------------------
 def load_vectorstore(uploaded_files):
