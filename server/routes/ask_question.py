@@ -4,8 +4,8 @@ from modules.llm import get_llm_chain
 from modules.query_handlers import query_chain
 from langchain_core.documents import Document
 from langchain.schema import BaseRetriever
-# --- CORRECTED: Use the correct class name ---
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+# --- CORRECTED: Use the correct class for the Inference API ---
+from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
 from pinecone import Pinecone
 from pydantic import Field
 from typing import List, Optional
@@ -32,8 +32,8 @@ async def ask_question(question: str = Form(...)):
         pc = Pinecone(api_key=PINECONE_API_KEY)
         index = pc.Index(PINECONE_INDEX_NAME)
         
-        # --- CORRECTED: Use the correct class name ---
-        embed_model = HuggingFaceEndpointEmbeddings(
+        # --- CORRECTED: Use the correct class for the Inference API ---
+        embed_model = HuggingFaceInferenceAPIEmbeddings(
             api_key=HF_TOKEN,
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
